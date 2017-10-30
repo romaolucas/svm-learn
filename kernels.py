@@ -7,6 +7,9 @@ class BaseKernel():
     K(x, y) = x'y
     '''
     
+    def __init__(self, *args, **kwargs):
+        pass
+
     def apply(self, x, y):
         return np.dot(x, y)
 
@@ -18,7 +21,7 @@ class PolynomialKernel(BaseKernel):
     '''
 
     def __init__(self, *args, **kwargs):
-        super.__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.d = args[0]
         if len(args) > 1:
             self.c = args[1]
@@ -36,7 +39,7 @@ class RBFKernel(BaseKernel):
     '''
 
     def __init__(self, *args, **kwargs):
-        super.__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.gamma = args[0]
 
     def apply(self, x, y):
@@ -51,7 +54,7 @@ class LaplacianKernel(BaseKernel):
     '''
 
     def __init__(self, *args, **kwargs):
-        super.__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.alpha = args[0]
 
     def apply(self, x, y):
@@ -66,7 +69,7 @@ class HyperbolicTangentKernel(BaseKernel):
     '''
     
     def __init__(self, *args, **kwargs):
-        super.__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.alpha = args[0]
         if len(args) > 1:
             self.c = args[1]
