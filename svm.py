@@ -45,10 +45,11 @@ class SVMLearn(object):
         Y is calculated using the formula
         y = \sum_{i = 0}^N multiplier_i*t_i*K(X_i, x) + b
         '''
-        partial_sum = 0
-        for i in range(self._N):
-            partial_sum += self._multipliers[i]*self._t[i]*self._kernel.apply(self._X[i], x)
-        return partial_sum + b
+        y = self._b
+        S = self.support_vectors()
+        for m in S:
+            y += self._multipliers[m]*self._t[m]*self._kernel.apply(self._X[m], x)
+        return y
     
     def gram_matrix(self):
         '''
@@ -147,11 +148,21 @@ class SVMLearn(object):
         return correctly_classified / len(t)
 
 def main():
-    X, t = datasets.load_breast_cancer(return_X_y=True)
+    import csv
+    X = []
+    t = []
+    with open('clean2.data', mode='r') as csvfile:
+        data_reader = csv.reader(csvfile, delimiter=',')
+        for row in data_reader:
+            X.append(row[0:166])
+            t.append(row[-1])
+    X = np.array(X, dtype=float)
+    t = np.array(t, dtype=float)
     for index, lbl in enumerate(t):
         if lbl == 0:
             t[index] = -1
     X_train, X_test, t_train, t_test = model_selection.train_test_split(X, t)
+    print("X train shape:", X_train.shape)
     svm = SVMLearn(X_train, t_train)
     svm.fit()
     print("finished training")
