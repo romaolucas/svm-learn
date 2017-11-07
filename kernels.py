@@ -44,7 +44,7 @@ class RBFKernel(BaseKernel):
 
     def apply(self, x, y):
         distance = np.linalg.norm(x - y)
-        return np.exp(-1 * self.gamma*math.pow(x, 2))
+        return np.exp(-1 * self.gamma*math.pow(distance, 2))
 
 class LaplacianKernel(BaseKernel):
     '''
