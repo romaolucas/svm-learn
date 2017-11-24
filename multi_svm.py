@@ -1,10 +1,11 @@
 import numpy as np
 import sklearn.datasets as datasets
 import sklearn.model_selection as model_selection
-from svm import SVMLearn
-from kernelFactory import KernelFactory
+from sklearn.base import BaseEstimator
+from classifiers.svm import SVMLearn
+from classifiers.kernelFactory import KernelFactory
 
-class MultiSVMLearn(object):
+class MultiSVMLearn(BaseEstimator):
     '''
     Implementation of SVM for multiple classes
 
@@ -26,32 +27,33 @@ class MultiSVMLearn(object):
     K: number of classes
     '''
 
-    def __init__(self, X, t, kernelType="", C=1, *args, **kwargs):
+    def __init__(self, classes, kernelType="", C=1, gamma=0.00001, degree=3, coef=0):
         '''
         Creates an instance of MultiSVMLearn
         '''
-        self._X = np.array(X)
-        classes = set(t)
-        print(t)
-        self._K = len(classes)
-        self._t = {}
-        for c in classes:
-            self._t[c] = np.array([1 if label == c else -1 for label in t])
-        print(self._t)
-        self._classifiers = {}
-        for c in classes:
-            self._classifiers[c] = SVMLearn(self._X, self._t[c], kernelType, C, *args, **kwargs)
+        self.classes = classes
+        self.kernelType = kernelType
+        self.C = C
+        self.gamma = gamma
+        self.degree = degree
+        self.coef = coef
 
-
-    def fit(self):
+    def fit(self, X, t):
         '''
         Trains the K classifiers for be used in train
         '''
+        self._X = np.array(X)
+        self._t = {}
+        self._classifiers = {}
+        for c in self.classes:
+            self._t[c] = np.array([1 if label == c else -1 for label in t])
+        for c in self.classes:
+            self._classifiers[c] = SVMLearn(kernelType=self.kernelType, C=self.C, gamma=self.gamma, \
+                    degree=self.degree, coef=self.coef)
         for k in self._classifiers:
-            print("Fitting classifier for class {}".format(k))
-            self._classifiers[k].fit()
+            self._classifiers[k].fit(X, self._t[k])
     
-    def train(self, X):
+    def predict(self, X):
         y = []
         for x in X:
             y_x = {}
@@ -60,22 +62,22 @@ class MultiSVMLearn(object):
             y.append(max(y_x, key=lambda k: y_x[k]))
         return y
 
-    def compute_accuracy(self, X, t):
-        y = self.train(X)
+    def score(self, X, t):
+        y = self.predict(X)
         correctly_classified = 0
         for y_i, t_i in zip(y, t):
             if y_i == t_i:
                 correctly_classified += 1
         return correctly_classified / len(t)
 
-
 def main():
     X, t = datasets.load_iris(return_X_y=True)
     X_train, X_test, t_train, t_test = model_selection.train_test_split(X, t)
-    svm = MultiSVMLearn(X_train, t_train, 'pol', 1, 4)
-    svm.fit()
+    svm = MultiSVMLearn(set(t), kernelType="pol", C=1, degree=4)
+    svm.fit(X_train, t_train)
     print("finished training")
-    print("Accuracy: {}".format(svm.compute_accuracy(X_test, t_test)))
+    print("Accuracy: {}".format(svm.score(X_test, t_test)))
+
 
 if __name__ == '__main__':
     main()

@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 import sklearn.datasets as datasets
 import sklearn.model_selection as model_selection
+from sklearn.base import BaseEstimator
 from cvxopt import solvers, matrix
-from kernelFactory import KernelFactory
+from classifiers.kernelFactory import KernelFactory
 
-class SVMLearn(object):
+class SVMLearn(BaseEstimator):
     ''' Implementation of SVM for binary cases
 
     This is the implementation described in Bishop's Machine Learning book.
@@ -27,17 +29,16 @@ class SVMLearn(object):
 
     '''
 
-    def __init__(self, X, t, kernelType="", C=1, *args, **kwargs):
+    def __init__(self, kernelType="", C=1, gamma=0.00001, degree=3, coef=0):
         '''
         Creates an instance of the SVMLearn
         '''
-        self._X = X
-        self._t = t
-        self._kernel = KernelFactory.create_kernel(kernelType, *args, **kwargs)
-        self._C = C
-        self._N = X.shape[0]
-        self._multipliers = np.zeros(self._N)
-        self._b = 0
+        self.kernelType = kernelType
+        self.gamma = gamma
+        self.degree = degree
+        self.coef = coef
+        solvers.options["show_progress"] = False
+        self.C = C
     
     def compute_y(self, x):
         '''
@@ -56,7 +57,11 @@ class SVMLearn(object):
         Computes the gram matrix. The matrix is 
         such that K(x, y) = kernel(x, y)
         '''
-        return np.array([[self._kernel.apply(x, y) for x in self._X] for y in self._X])
+        K = np.zeros((self._X.shape[0], self._X.shape[0]))
+        for i, x_i in enumerate(self._X):
+            for j, x_j in enumerate(self._X):
+                K[i, j] = self._kernel.apply(x_i, x_j)
+        return K
 
     def support_vectors(self):
         '''
@@ -65,7 +70,7 @@ class SVMLearn(object):
         '''
         S = []
         for index, multiplier in enumerate(self._multipliers):
-            if multiplier > 0:
+            if multiplier > 1e-5:
                 S.append(index)
         return S
 
@@ -76,7 +81,7 @@ class SVMLearn(object):
         '''
         M = []
         for index, multiplier in enumerate(self._multipliers):
-            if multiplier > 0 and multiplier < self._C:
+            if multiplier > 0 and multiplier < self.C:
                 M.append(index)
         return M
 
@@ -99,31 +104,36 @@ class SVMLearn(object):
         b = b/len(M)
         return b
 
-    def fit(self):
+    def fit(self, X, t):
         '''
         Computes the lagrange multipliers solving the quadric problem
         G is the matrix representing the box constraints
         A is the matrix representing \sum_{n} multipliers_n*t_n = 0
         P is the matrix with entrances t_i*t_j*k(x_i, x_j)
         '''
+        self._X = np.array(X)
+        self._t = t
+        self._kernel = KernelFactory.create_kernel(self.kernelType, self.gamma, self.degree, self.coef)
+        self._b = 0
+        N = X.shape[0]
+        self._multipliers = np.zeros(N)
         K = self.gram_matrix()
         T = np.outer(self._t, self._t)
-        P = matrix(T * K)
-        q = matrix(np.ones(self._N))
-        G_C = matrix(np.eye(self._N))
-        G_zero = matrix(np.diag((-1)*np.ones(self._N)))
-        h_C = matrix(np.ones(self._N) * self._C)
-        h_zero = matrix(np.zeros(self._N))
+        P = matrix(K*T)
+        q = matrix((-1)*np.ones(N))
+        G_C = matrix(np.eye(N))
+        G_zero = matrix(np.diag((-1)*np.ones(N)))
+        h_C = matrix(np.ones(N) * self.C)
+        h_zero = matrix(np.zeros(N))
         G = matrix(np.vstack((G_C, G_zero)))
         h = matrix(np.vstack((h_C, h_zero)))
-        A = matrix(self._t.astype(np.double), (1, self._N))
+        A = matrix(self._t.astype(np.double), (1, N))
         b = matrix(0.0)
         solution = solvers.qp(P, q, G, h, A, b)
         self._multipliers = np.ravel(solution['x'])
-        print("multipliers ", self._multipliers)
         self._b = self.calculate_b()
 
-    def train(self, X):
+    def predict(self, X):
         '''
         classify a set of inputs in X using the formula
         y(x) = b + \sum_{i \in S} t[i]*multipliers[i]*k(x, x[i])
@@ -138,9 +148,9 @@ class SVMLearn(object):
                 y_x += self._multipliers[m]*self._t[m]*self._kernel.apply(x, self._X[m])
             y.append(1 if y_x >= 0 else -1)
         return y
-
-    def compute_accuracy(self, X, t):
-        y = self.train(X)
+    
+    def score(self, X, t):
+        y = self.predict(X)
         correctly_classified = 0
         for y_i, t_i in zip(y, t):
             if y_i == t_i:
@@ -163,10 +173,10 @@ def main():
             t[index] = -1
     X_train, X_test, t_train, t_test = model_selection.train_test_split(X, t)
     print("X train shape:", X_train.shape)
-    svm = SVMLearn(X_train, t_train)
-    svm.fit()
+    svm = SVMLearn()
+    svm.fit(X_train, t_train)
     print("finished training")
-    print("Accuracy: ", svm.compute_accuracy(X_test, t_test))
+    print("Accuracy: ", svm.score(X_test, t_test))
 
 if __name__ == '__main__':
     main()
